@@ -489,30 +489,23 @@
             />
           </div>
           <div class="ctrl-group">
-            <button
-              class="toggle-btn"
-              id="invertToggle"
-              onclick="toggleInvert()"
-            >
+            <button class="toggle-btn" id="invertToggle" type="button">
               invert:off
             </button>
           </div>
           <div class="ctrl-group">
-            <button class="toggle-btn" id="colorToggle" onclick="toggleColor()">
+            <button class="toggle-btn" id="colorToggle" type="button">
               color:off
             </button>
           </div>
           <div class="cmd-actions">
-            <button
-              class="action-btn"
-              onclick="document.getElementById('file-input').click()"
-            >
+            <button class="action-btn" id="uploadBtn" type="button">
               [ upload ]
             </button>
             <button
               class="action-btn"
               id="downloadBtn"
-              onclick="downloadArt()"
+              type="button"
               style="display: none"
             >
               [ save ]
@@ -527,15 +520,16 @@
         <div class="drop-zone" id="dropZone">
           <div class="drop-hint" id="dropHint">
             <pre class="drop-hint-art">
-  ╔══════════════════════════════════════╗
-  ║                                      ║
-  ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄ ▀▀█▀▀      ║
-  ║     █   █  █     ▀ █         █       ║
-  ║     █▀▀▀█  ▀▀▀▀▄   █         █       ║
-  ║     █   █  ▄   █  █   ▄     █       ║
-  ║     ▀   ▀   ▀▀▀    ▀▀▀▀  ▀▀▀▀▀      ║
-  ║                                      ║
-  ╚══════════════════════════════════════╝
+  
+  ╔═════════════════════════════════════╗
+  ║                                     ║
+  ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄  ▀▀█▀█▀▀    ║
+  ║     █   █  █      █        █ █      ║
+  ║     █▀▀▀█  ▀▀▀▀▄  █        █ █      ║
+  ║     █   █  ▄   █  █   ▄    █ █      ║
+  ║     ▀   ▀   ▀▀▀    ▀▀▀▀  ▀▀▀▀▀▀▀    ║
+  ║                                     ║
+  ╚═════════════════════════════════════╝
         </pre
             >
             <div class="cmd">
@@ -582,6 +576,7 @@
       let isProcessing = false;
 
       const fileInput = document.getElementById("file-input");
+      const uploadBtn = document.getElementById("uploadBtn");
       const dropZone = document.getElementById("dropZone");
       const dropHint = document.getElementById("dropHint");
       const asciiOutput = document.getElementById("ascii-output");
@@ -589,17 +584,77 @@
       const fontSizeSlider = document.getElementById("fontSize");
       const fontSizeVal = document.getElementById("fontSizeVal");
       const charsetInput = document.getElementById("charsetInput");
+      const invertToggle = document.getElementById("invertToggle");
+      const colorToggle = document.getElementById("colorToggle");
       const downloadBtn = document.getElementById("downloadBtn");
       const canvas = document.getElementById("hidden-canvas");
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       const fileNameDisplay = document.getElementById("fileNameDisplay");
       const DEFAULT_CHARSET = "@%#*+=-:.";
 
+      function escapeHtmlChar(ch) {
+        if (ch === "<") return "&lt;";
+        if (ch === ">") return "&gt;";
+        if (ch === "&") return "&amp;";
+        return ch;
+      }
+
+      function normalizeCharset(value) {
+        const cleaned = (value || "")
+          .split("")
+          .filter((ch) => ch.trim() !== "")
+          .join("");
+        return cleaned || DEFAULT_CHARSET;
+      }
+
+      function buildAsciiRows(pixels, cols, rows, charArr, useOriginalColor) {
+        const totalChars = charArr.length;
+        const lines = [];
+        let charCount = 0;
+
+        for (let y = 0; y < rows; y++) {
+          let line = "";
+          for (let x = 0; x < cols; x++) {
+            const idx = (y * cols + x) * 4;
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+            const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            const charIndex = Math.min(
+              Math.floor(brightness * (totalChars - 1)),
+              totalChars - 1,
+            );
+            const ch = escapeHtmlChar(charArr[charIndex]);
+
+            if (useOriginalColor) {
+              line += `<span style="color:rgb(${r},${g},${b})">${ch}</span>`;
+            } else {
+              const gray = Math.round(90 + brightness * 165);
+              line += `<span style="color:rgb(${gray},${gray},${gray})">${ch}</span>`;
+            }
+            charCount += 1;
+          }
+          lines.push(line);
+        }
+
+        return {
+          html: lines.join("\n"),
+          charCount,
+        };
+      }
+
+      function updateToggleState(button, enabled, onLabel) {
+        button.classList.toggle("active", enabled);
+        button.textContent = `${onLabel}:${enabled ? "on" : "off"}`;
+      }
+
       fileInput.addEventListener("change", (e) => {
-        if (e.target.files[0]) loadImage(e.target.files[0]);
+        if (e.target.files && e.target.files[0]) loadImage(e.target.files[0]);
       });
 
-      dropZone.addEventListener("click", (e) => {
+      uploadBtn.addEventListener("click", () => fileInput.click());
+
+      dropZone.addEventListener("click", () => {
         if (!currentImage) fileInput.click();
       });
 
@@ -615,33 +670,34 @@
       dropZone.addEventListener("drop", (e) => {
         e.preventDefault();
         dropZone.classList.remove("drag-over");
-        if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files && e.dataTransfer.files[0])
+          loadImage(e.dataTransfer.files[0]);
       });
 
       fontSizeSlider.addEventListener("input", () => {
-        fontSizeVal.textContent = fontSizeSlider.value + "px";
+        fontSizeVal.textContent = `${fontSizeSlider.value}px`;
         if (currentImage) renderASCII();
       });
 
       charsetInput.addEventListener("input", () => {
+        const normalized = normalizeCharset(charsetInput.value);
+        if (charsetInput.value !== normalized) charsetInput.value = normalized;
         if (currentImage) renderASCII();
       });
 
-      function toggleInvert() {
+      invertToggle.addEventListener("click", () => {
         inverted = !inverted;
-        const btn = document.getElementById("invertToggle");
-        btn.classList.toggle("active", inverted);
-        btn.textContent = inverted ? "invert:on" : "invert:off";
+        updateToggleState(invertToggle, inverted, "invert");
         if (currentImage) renderASCII();
-      }
+      });
 
-      function toggleColor() {
+      colorToggle.addEventListener("click", () => {
         colorMode = !colorMode;
-        const btn = document.getElementById("colorToggle");
-        btn.classList.toggle("active", colorMode);
-        btn.textContent = colorMode ? "color:on" : "color:off";
+        updateToggleState(colorToggle, colorMode, "color");
         if (currentImage) renderASCII();
-      }
+      });
+
+      downloadBtn.addEventListener("click", downloadArt);
 
       function loadImage(file) {
         fileNameDisplay.textContent = file.name;
@@ -675,102 +731,70 @@
         if (!currentImage || isProcessing) return;
         isProcessing = true;
 
-        const fontSize = parseInt(fontSizeSlider.value);
-        let charset = (charsetInput.value || DEFAULT_CHARSET)
-          .split("")
-          .filter((ch) => ch.trim() !== "")
-          .join("");
-        if (!charset.length) charset = DEFAULT_CHARSET;
+        try {
+          const fontSize = parseInt(fontSizeSlider.value, 10);
+          const charset = normalizeCharset(charsetInput.value);
+          charsetInput.value = charset;
 
-        if (fixedOutputW <= 0 || fixedOutputH <= 0) calcFixedSize();
+          if (fixedOutputW <= 0 || fixedOutputH <= 0) calcFixedSize();
 
-        const charWidthPx = fontSize * 0.6;
-        const charHeightPx = fontSize;
+          const charWidthPx = fontSize * 0.62;
+          const charHeightPx = fontSize * 1.0;
 
-        const maxCols = Math.floor(fixedOutputW / charWidthPx);
-        const maxRows = Math.floor(fixedOutputH / charHeightPx);
+          const maxCols = Math.max(4, Math.floor(fixedOutputW / charWidthPx));
+          const maxRows = Math.max(2, Math.floor(fixedOutputH / charHeightPx));
 
-        const imgAspect = currentImage.width / currentImage.height;
-        const charAspect = 0.6;
+          const imgAspect = currentImage.width / currentImage.height;
+          const cellAspect = charWidthPx / charHeightPx;
 
-        let cols = maxCols;
-        let rows = Math.floor(cols / imgAspect / charAspect);
+          let cols = maxCols;
+          let rows = Math.round((cols / imgAspect) * cellAspect);
 
-        if (rows > maxRows) {
-          rows = maxRows;
-          cols = Math.floor(rows * imgAspect * charAspect);
-        }
-
-        cols = Math.max(4, Math.min(cols, 800));
-        rows = Math.max(2, Math.min(rows, 600));
-
-        canvas.width = cols;
-        canvas.height = rows;
-        ctx.drawImage(currentImage, 0, 0, cols, rows);
-        const imageData = ctx.getImageData(0, 0, cols, rows);
-        const pixels = imageData.data;
-
-        let charArr = charset.split("");
-        if (inverted) charArr = charArr.slice().reverse();
-
-        const totalChars = charArr.length;
-        let html = "";
-        let charCount = 0;
-
-        if (colorMode) {
-          for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-              const idx = (y * cols + x) * 4;
-              const r = pixels[idx];
-              const g = pixels[idx + 1];
-              const b = pixels[idx + 2];
-              const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-              const charIndex = Math.floor(brightness * (totalChars - 1));
-              const ch = charArr[Math.min(charIndex, totalChars - 1)];
-              html += `<span style="color:rgb(${r},${g},${b})">${ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch}</span>`;
-              charCount++;
-            }
-            html += "\n";
+          if (rows > maxRows) {
+            rows = maxRows;
+            cols = Math.round((rows * imgAspect) / cellAspect);
           }
+
+          cols = Math.max(4, Math.min(cols, 800));
+          rows = Math.max(2, Math.min(rows, 600));
+
+          canvas.width = cols;
+          canvas.height = rows;
+          ctx.drawImage(currentImage, 0, 0, cols, rows);
+          const imageData = ctx.getImageData(0, 0, cols, rows);
+          const pixels = imageData.data;
+
+          let charArr = charset.split("");
+          if (inverted) charArr = charArr.slice().reverse();
+
+          const { html, charCount } = buildAsciiRows(
+            pixels,
+            cols,
+            rows,
+            charArr,
+            colorMode,
+          );
+
           asciiPre.innerHTML = html;
           asciiPre.classList.add("color-mode");
-        } else {
-          for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-              const idx = (y * cols + x) * 4;
-              const r = pixels[idx];
-              const g = pixels[idx + 1];
-              const b = pixels[idx + 2];
-              const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-              const charIndex = Math.floor(brightness * (totalChars - 1));
-              const ch = charArr[Math.min(charIndex, totalChars - 1)];
-              const gray = Math.round(90 + brightness * 165);
-              html += `<span style="color:rgb(${gray},${gray},${gray})">${ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch}</span>`;
-              charCount++;
-            }
-            html += "\n";
-          }
-          asciiPre.innerHTML = html;
-          asciiPre.classList.add("color-mode");
+          asciiPre.style.fontSize = `${fontSize}px`;
+          asciiPre.style.lineHeight = `${fontSize}px`;
+
+          document.getElementById("infoRes").textContent =
+            `${currentImage.width}×${currentImage.height}`;
+          document.getElementById("infoChars").textContent =
+            charCount.toLocaleString();
+          document.getElementById("infoCols").textContent = cols;
+          document.getElementById("infoRows").textContent = rows;
+          document.querySelector(".title-text").textContent =
+            `ascii_portrait — bash — ${cols}×${rows}`;
+        } finally {
+          isProcessing = false;
         }
-
-        asciiPre.style.fontSize = fontSize + "px";
-        asciiPre.style.lineHeight = fontSize + "px";
-
-        document.getElementById("infoRes").textContent =
-          `${currentImage.width}×${currentImage.height}`;
-        document.getElementById("infoChars").textContent =
-          charCount.toLocaleString();
-        document.getElementById("infoCols").textContent = cols;
-        document.getElementById("infoRows").textContent = rows;
-        document.querySelector(".title-text").textContent =
-          `ascii_portrait — bash — ${cols}×${rows}`;
-
-        isProcessing = false;
       }
 
       function downloadArt() {
-        const text = asciiPre.textContent || asciiPre.innerText;
+        const text = asciiPre.textContent || asciiPre.innerText || "";
         const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -788,6 +812,48 @@
           if (currentImage) renderASCII();
         }, 200);
       });
+
+      function runTests() {
+        console.assert(
+          normalizeCharset("@ % #") === "@%#",
+          "spaces should be removed from charset",
+        );
+        console.assert(
+          normalizeCharset("   ") === DEFAULT_CHARSET,
+          "empty charset should fall back to default",
+        );
+        console.assert(
+          escapeHtmlChar("<") === "&lt;",
+          "less-than should be escaped",
+        );
+        console.assert(
+          escapeHtmlChar(">") === "&gt;",
+          "greater-than should be escaped",
+        );
+        console.assert(
+          escapeHtmlChar("&") === "&amp;",
+          "ampersand should be escaped",
+        );
+
+        const samplePixels = new Uint8ClampedArray([
+          0, 0, 0, 255, 255, 255, 255, 255,
+        ]);
+        const result = buildAsciiRows(samplePixels, 2, 1, ["@", "."], false);
+        console.assert(
+          result.charCount === 2,
+          "charCount should match rendered cells",
+        );
+        console.assert(
+          result.html.includes("rgb("),
+          "grayscale html should include rgb color spans",
+        );
+        console.assert(
+          result.html.includes("@") || result.html.includes("."),
+          "html should include charset characters",
+        );
+      }
+
+      runTests();
     </script>
   </body>
 </html>

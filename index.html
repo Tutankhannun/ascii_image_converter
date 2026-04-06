@@ -769,6 +769,7 @@
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       const fileNameDisplay = document.getElementById("fileNameDisplay");
       const DEFAULT_CHARSET = "@%#*+=-:.";
+      const EMPTY_CHARSET_FALLBACK = ".";
 
       function escapeHtmlChar(ch) {
         if (ch === "<") return "&lt;";
@@ -782,7 +783,7 @@
           .split("")
           .filter((ch) => ch.trim() !== "")
           .join("");
-        return cleaned || DEFAULT_CHARSET;
+        return cleaned;
       }
 
       function buildAsciiRows(pixels, cols, rows, charArr, useOriginalColor) {
@@ -912,7 +913,7 @@
         try {
           const fontSize = parseInt(fontSizeSlider.value, 10);
           const charset = normalizeCharset(charsetInput.value);
-          charsetInput.value = charset;
+          const renderCharset = charset || EMPTY_CHARSET_FALLBACK;
 
           if (fixedOutputW <= 0 || fixedOutputH <= 0) calcFixedSize();
 
@@ -942,7 +943,7 @@
           const imageData = ctx.getImageData(0, 0, cols, rows);
           const pixels = imageData.data;
 
-          let charArr = charset.split("");
+          let charArr = renderCharset.split("");
           if (inverted) charArr = charArr.slice().reverse();
 
           const { html, charCount } = buildAsciiRows(
@@ -997,8 +998,8 @@
           "spaces should be removed from charset",
         );
         console.assert(
-          normalizeCharset("   ") === DEFAULT_CHARSET,
-          "empty charset should fall back to default",
+          normalizeCharset("   ") === "",
+          "empty charset should stay empty",
         );
         console.assert(
           escapeHtmlChar("<") === "&lt;",

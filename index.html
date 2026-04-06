@@ -527,15 +527,15 @@
         <div class="drop-zone" id="dropZone">
           <div class="drop-hint" id="dropHint">
             <pre class="drop-hint-art">
-  ╔═════════════════════════════════════╗
-  ║                                     ║
-  ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄ ▀▀█▀▀       ║
-  ║     █   █  █      █       █         ║
-  ║     █▀▀▀█  ▀▀▀▀▄  █       █         ║
-  ║     █   █  ▄   █  █   ▄   █         ║
-  ║     ▀   ▀   ▀▀▀    ▀▀▀▀ ▀▀▀▀▀       ║
-  ║                                     ║
-  ╚═════════════════════════════════════╝
+  ╔══════════════════════════════════════╗
+  ║                                      ║
+  ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄ ▀▀█▀▀      ║
+  ║     █   █  █     ▀ █         █       ║
+  ║     █▀▀▀█  ▀▀▀▀▄   █         █       ║
+  ║     █   █  ▄   █  █   ▄     █       ║
+  ║     ▀   ▀   ▀▀▀    ▀▀▀▀  ▀▀▀▀▀      ║
+  ║                                      ║
+  ╚══════════════════════════════════════╝
         </pre
             >
             <div class="cmd">
@@ -735,7 +735,6 @@
           asciiPre.innerHTML = html;
           asciiPre.classList.add("color-mode");
         } else {
-          let text = "";
           for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
               const idx = (y * cols + x) * 4;
@@ -744,13 +743,15 @@
               const b = pixels[idx + 2];
               const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
               const charIndex = Math.floor(brightness * (totalChars - 1));
-              text += charArr[Math.min(charIndex, totalChars - 1)];
+              const ch = charArr[Math.min(charIndex, totalChars - 1)];
+              const gray = Math.round(90 + brightness * 165);
+              html += `<span style="color:rgb(${gray},${gray},${gray})">${ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch}</span>`;
               charCount++;
             }
-            text += "\n";
+            html += "\n";
           }
-          asciiPre.textContent = text;
-          asciiPre.classList.remove("color-mode");
+          asciiPre.innerHTML = html;
+          asciiPre.classList.add("color-mode");
         }
 
         asciiPre.style.fontSize = fontSize + "px";

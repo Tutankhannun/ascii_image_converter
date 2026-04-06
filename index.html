@@ -416,6 +416,185 @@
       @media (max-width: 768px) {
         body {
           padding: 8px;
+          align-items: stretch;
+        }
+
+        .terminal {
+          height: calc(100dvh - 16px);
+          border-radius: 6px;
+        }
+
+        .title-bar {
+          height: 34px;
+          padding: 0 10px;
+        }
+
+        .title-text {
+          font-size: 11px;
+        }
+
+        .cmd-bar {
+          padding: 8px 10px;
+          gap: 8px;
+        }
+
+        .cmd-line {
+          gap: 6px;
+        }
+
+        .cmd-controls {
+          gap: 8px;
+          align-items: stretch;
+        }
+
+        .ctrl-group {
+          width: 100%;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        input[type="range"] {
+          width: min(46vw, 180px);
+          flex: 1;
+        }
+
+        .char-input {
+          width: min(46vw, 180px);
+          min-height: 30px;
+        }
+
+        .toggle-btn,
+        .action-btn {
+          min-height: 32px;
+          padding: 4px 10px;
+        }
+
+        .cmd-actions {
+          width: 100%;
+          margin-left: 0;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+        }
+
+        .workspace {
+          min-height: 0;
+        }
+
+        #ascii-output {
+          padding: 8px;
+        }
+
+        .drop-hint-art {
+          font-size: 9px;
+          margin-bottom: 14px;
+        }
+
+        .drop-hint .cmd {
+          font-size: 12px;
+          padding: 0 8px;
+        }
+
+        .drop-hint .hint {
+          font-size: 10px;
+          padding: 0 12px;
+        }
+
+        .status-bar {
+          padding: 0 10px;
+          gap: 10px;
+          font-size: 9px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 0;
+        }
+
+        .terminal {
+          height: 100dvh;
+          border-radius: 0;
+          border-left: 0;
+          border-right: 0;
+        }
+
+        .title-bar {
+          height: 32px;
+          gap: 6px;
+        }
+
+        .traffic-dot {
+          width: 10px;
+          height: 10px;
+        }
+
+        .title-text {
+          font-size: 10px;
+          letter-spacing: 0.02em;
+        }
+
+        .cmd-bar {
+          padding: 8px;
+        }
+
+        .cmd-line {
+          font-size: 11px;
+        }
+
+        .prompt,
+        .cmd-text,
+        .cmd-flag,
+        .cmd-value {
+          font-size: 11px;
+        }
+
+        .ctrl-label,
+        .ctrl-value,
+        .char-input,
+        .toggle-btn,
+        .action-btn {
+          font-size: 10px;
+        }
+
+        .ctrl-group {
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        input[type="range"],
+        .char-input {
+          width: 100%;
+        }
+
+        .cmd-actions {
+          gap: 8px;
+        }
+
+        .cmd-actions .action-btn {
+          flex: 1;
+        }
+
+        .drop-hint-art {
+          font-size: 7px;
+          line-height: 1.25;
+        }
+
+        .drop-hint .cmd {
+          font-size: 11px;
+        }
+
+        .drop-hint .hint {
+          font-size: 9px;
+        }
+
+        #ascii-output {
+          padding: 6px;
+        }
+
+        .status-bar {
+          gap: 8px;
+          font-size: 8px;
+          height: 24px;
         }
         .terminal {
           height: calc(100vh - 16px);
@@ -520,7 +699,6 @@
         <div class="drop-zone" id="dropZone">
           <div class="drop-hint" id="dropHint">
             <pre class="drop-hint-art">
-  
   ╔═════════════════════════════════════╗
   ║                                     ║
   ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄  ▀▀█▀█▀▀    ║
@@ -530,7 +708,7 @@
   ║     ▀   ▀   ▀▀▀    ▀▀▀▀  ▀▀▀▀▀▀▀    ║
   ║                                     ║
   ╚═════════════════════════════════════╝
-        </pre
+  </pre
             >
             <div class="cmd">
               <span class="prompt"><span class="dollar">$</span></span> 이미지를

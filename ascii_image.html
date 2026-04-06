@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ascii_portrait — terminal</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --green: #f2f2f2;
+        --green-dim: #b8b8b8;
+        --green-dark: #5a5a5a;
+        --green-glow: rgba(255, 255, 255, 0.12);
+        --green-bright: #ffffff;
+        --amber: #d6d6d6;
+        --terminal-bg: #0c0c0c;
+        --border: #2b2b2b;
+        --comment: #8a8a8a;
+      }
+
+      body {
+        background: #050505;
+        color: var(--green);
+        font-family: "JetBrains Mono", "Courier New", monospace;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .crt-overlay {
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.15) 2px,
+          rgba(0, 0, 0, 0.15) 4px
+        );
+        pointer-events: none;
+        z-index: 9998;
+      }
+
+      .vignette {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(
+          ellipse at center,
+          transparent 50%,
+          rgba(0, 0, 0, 0.6) 100%
+        );
+        pointer-events: none;
+        z-index: 9997;
+      }
+
+      .terminal {
+        width: 100%;
+        max-width: 1200px;
+        height: calc(100vh - 40px);
+        background: var(--terminal-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow:
+          0 0 60px rgba(255, 255, 255, 0.04),
+          0 0 1px rgba(255, 255, 255, 0.18),
+          inset 0 0 80px rgba(0, 0, 0, 0.5);
+      }
+
+      .title-bar {
+        height: 38px;
+        background: #101010;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 8px;
+        flex-shrink: 0;
+        user-select: none;
+      }
+
+      .traffic-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .dot-red {
+        background: #8c8c8c;
+      }
+      .dot-yellow {
+        background: #b3b3b3;
+      }
+      .dot-green {
+        background: #d9d9d9;
+      }
+
+      .title-text {
+        flex: 1;
+        text-align: center;
+        font-size: 12px;
+        color: var(--green-dim);
+        letter-spacing: 0.05em;
+      }
+
+      .cmd-bar {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: #0a0a0a;
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .cmd-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .prompt {
+        color: var(--green-dim);
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      .prompt .path {
+        color: var(--amber);
+      }
+      .prompt .dollar {
+        color: var(--green);
+      }
+      .cmd-text {
+        color: var(--green);
+      }
+      .cmd-flag {
+        color: var(--comment);
+      }
+      .cmd-value {
+        color: var(--green-bright);
+      }
+
+      .cmd-controls {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .ctrl-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .ctrl-label {
+        font-size: 11px;
+        color: var(--comment);
+      }
+
+      .ctrl-label::before {
+        content: "--";
+        color: var(--green-dim);
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 140px;
+        height: 2px;
+        background: var(--green-dark);
+        outline: none;
+        cursor: pointer;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 10px;
+        height: 10px;
+        background: var(--green);
+        border-radius: 0;
+        cursor: pointer;
+        box-shadow: 0 0 8px var(--green-glow);
+      }
+
+      .ctrl-value {
+        font-size: 11px;
+        color: var(--green);
+        min-width: 28px;
+        font-weight: 500;
+      }
+
+      .char-input {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        width: 160px;
+        padding: 3px 6px;
+        background: transparent;
+        border: 1px solid var(--green-dark);
+        color: var(--green);
+        outline: none;
+      }
+
+      .char-input:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 6px var(--green-glow);
+      }
+
+      .toggle-btn {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        background: transparent;
+        border: 1px solid var(--green-dark);
+        color: var(--green-dim);
+        padding: 2px 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .toggle-btn.active {
+        color: var(--green);
+        border-color: var(--green);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 8px var(--green-glow);
+      }
+
+      .cmd-actions {
+        display: flex;
+        gap: 10px;
+        margin-left: auto;
+      }
+
+      .action-btn {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        background: transparent;
+        border: 1px solid var(--green-dark);
+        color: var(--green);
+        padding: 3px 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .action-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--green);
+        box-shadow: 0 0 12px var(--green-glow);
+      }
+
+      .workspace {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+
+      .drop-zone {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .drop-zone.drag-over {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .drop-zone.has-image {
+        cursor: default;
+      }
+
+      .drop-hint {
+        text-align: center;
+        color: var(--green-dim);
+      }
+
+      .drop-hint-art {
+        font-size: 11px;
+        line-height: 1.3;
+        color: var(--green-dark);
+        margin-bottom: 20px;
+        opacity: 0.7;
+      }
+
+      .drop-hint .cmd {
+        font-size: 13px;
+        color: var(--green);
+        margin-bottom: 6px;
+      }
+
+      .drop-hint .blink {
+        animation: blink 1s step-end infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .drop-hint .hint {
+        font-size: 11px;
+        color: var(--green-dim);
+        opacity: 0.6;
+      }
+
+      #ascii-output {
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        padding: 12px;
+        display: none;
+        background: var(--terminal-bg);
+      }
+
+      #ascii-output pre {
+        font-family: "JetBrains Mono", monospace;
+        line-height: 1;
+        letter-spacing: 0;
+        white-space: pre;
+        color: var(--green);
+        margin: 0 auto;
+        display: inline-block;
+        user-select: all;
+        text-shadow: 0 0 4px var(--green-glow);
+      }
+
+      #ascii-output pre.color-mode span {
+        text-shadow: none;
+      }
+
+      .status-bar {
+        height: 26px;
+        background: #0a0a0a;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 24px;
+        font-size: 10px;
+        color: var(--green-dim);
+        flex-shrink: 0;
+        overflow-x: auto;
+      }
+
+      .status-item {
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .status-item .val {
+        color: var(--green);
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .status-spacer {
+        flex: 1;
+      }
+
+      #hidden-canvas,
+      #file-input {
+        display: none;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--terminal-bg);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--green-dark);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--green-dim);
+      }
+
+      @media (max-width: 768px) {
+        body {
+          padding: 8px;
+        }
+        .terminal {
+          height: calc(100vh - 16px);
+          border-radius: 6px;
+        }
+        .cmd-bar {
+          padding: 8px 10px;
+        }
+        .cmd-controls {
+          gap: 10px;
+        }
+        input[type="range"] {
+          width: 80px;
+        }
+        .char-input {
+          width: 100px;
+        }
+        .status-bar {
+          padding: 0 10px;
+          gap: 12px;
+        }
+        #ascii-output {
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+
+    <div class="terminal">
+      <div class="title-bar">
+        <div class="traffic-dot dot-red"></div>
+        <div class="traffic-dot dot-yellow"></div>
+        <div class="traffic-dot dot-green"></div>
+        <div class="title-text">ascii_portrait — bash — 80×24</div>
+      </div>
+
+      <div class="cmd-bar">
+        <div class="cmd-line">
+          <span class="prompt"
+            ><span class="path">~/ascii</span>
+            <span class="dollar">$</span></span
+          >
+          <span class="cmd-text">convert</span>
+          <span class="cmd-flag">--input</span>
+          <span class="cmd-value" id="fileNameDisplay">waiting...</span>
+        </div>
+        <div class="cmd-line cmd-controls">
+          <div class="ctrl-group">
+            <span class="ctrl-label">size</span>
+            <input
+              type="range"
+              id="fontSize"
+              min="2"
+              max="20"
+              value="6"
+              step="1"
+            />
+            <span class="ctrl-value" id="fontSizeVal">6px</span>
+          </div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">charset</span>
+            <input
+              type="text"
+              class="char-input"
+              id="charsetInput"
+              value="@%#*+=-:."
+              placeholder="chars"
+            />
+          </div>
+          <div class="ctrl-group">
+            <button
+              class="toggle-btn"
+              id="invertToggle"
+              onclick="toggleInvert()"
+            >
+              invert:off
+            </button>
+          </div>
+          <div class="ctrl-group">
+            <button class="toggle-btn" id="colorToggle" onclick="toggleColor()">
+              color:off
+            </button>
+          </div>
+          <div class="cmd-actions">
+            <button
+              class="action-btn"
+              onclick="document.getElementById('file-input').click()"
+            >
+              [ upload ]
+            </button>
+            <button
+              class="action-btn"
+              id="downloadBtn"
+              onclick="downloadArt()"
+              style="display: none"
+            >
+              [ save ]
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <input type="file" id="file-input" accept="image/*" />
+
+      <div class="workspace">
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-hint" id="dropHint">
+            <pre class="drop-hint-art">
+  ╔═════════════════════════════════════╗
+  ║                                     ║
+  ║     ▄▀▀▀▄  ▄▀▀▀▄  ▄▀▀▀▄ ▀▀█▀▀       ║
+  ║     █   █  █      █       █         ║
+  ║     █▀▀▀█  ▀▀▀▀▄  █       █         ║
+  ║     █   █  ▄   █  █   ▄   █         ║
+  ║     ▀   ▀   ▀▀▀    ▀▀▀▀ ▀▀▀▀▀       ║
+  ║                                     ║
+  ╚═════════════════════════════════════╝
+        </pre
+            >
+            <div class="cmd">
+              <span class="prompt"><span class="dollar">$</span></span> 이미지를
+              드래그하거나 클릭하세요<span class="blink">█</span>
+            </div>
+            <div class="hint">jpg, png, webp — 텍스트가 픽셀이 됩니다</div>
+          </div>
+          <div id="ascii-output">
+            <pre id="asciiPre"></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-item">
+          <div class="status-dot"></div>
+          READY
+        </div>
+        <div class="status-item">
+          RES: <span class="val" id="infoRes">—</span>
+        </div>
+        <div class="status-item">
+          CHARS: <span class="val" id="infoChars">—</span>
+        </div>
+        <div class="status-item">
+          COL: <span class="val" id="infoCols">—</span>
+        </div>
+        <div class="status-item">
+          ROW: <span class="val" id="infoRows">—</span>
+        </div>
+        <div class="status-spacer"></div>
+        <div class="status-item">UTF-8</div>
+        <div class="status-item">LF</div>
+      </div>
+    </div>
+
+    <canvas id="hidden-canvas"></canvas>
+
+    <script>
+      let currentImage = null;
+      let inverted = false;
+      let colorMode = false;
+      let isProcessing = false;
+
+      const fileInput = document.getElementById("file-input");
+      const dropZone = document.getElementById("dropZone");
+      const dropHint = document.getElementById("dropHint");
+      const asciiOutput = document.getElementById("ascii-output");
+      const asciiPre = document.getElementById("asciiPre");
+      const fontSizeSlider = document.getElementById("fontSize");
+      const fontSizeVal = document.getElementById("fontSizeVal");
+      const charsetInput = document.getElementById("charsetInput");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const canvas = document.getElementById("hidden-canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const fileNameDisplay = document.getElementById("fileNameDisplay");
+      const DEFAULT_CHARSET = "@%#*+=-:.";
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files[0]) loadImage(e.target.files[0]);
+      });
+
+      dropZone.addEventListener("click", (e) => {
+        if (!currentImage) fileInput.click();
+      });
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+      });
+
+      fontSizeSlider.addEventListener("input", () => {
+        fontSizeVal.textContent = fontSizeSlider.value + "px";
+        if (currentImage) renderASCII();
+      });
+
+      charsetInput.addEventListener("input", () => {
+        if (currentImage) renderASCII();
+      });
+
+      function toggleInvert() {
+        inverted = !inverted;
+        const btn = document.getElementById("invertToggle");
+        btn.classList.toggle("active", inverted);
+        btn.textContent = inverted ? "invert:on" : "invert:off";
+        if (currentImage) renderASCII();
+      }
+
+      function toggleColor() {
+        colorMode = !colorMode;
+        const btn = document.getElementById("colorToggle");
+        btn.classList.toggle("active", colorMode);
+        btn.textContent = colorMode ? "color:on" : "color:off";
+        if (currentImage) renderASCII();
+      }
+
+      function loadImage(file) {
+        fileNameDisplay.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            currentImage = img;
+            dropHint.style.display = "none";
+            asciiOutput.style.display = "block";
+            dropZone.classList.add("has-image");
+            downloadBtn.style.display = "";
+            calcFixedSize();
+            renderASCII();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      let fixedOutputW = 0;
+      let fixedOutputH = 0;
+
+      function calcFixedSize() {
+        const pad = 24;
+        fixedOutputW = dropZone.clientWidth - pad;
+        fixedOutputH = dropZone.clientHeight - pad;
+      }
+
+      function renderASCII() {
+        if (!currentImage || isProcessing) return;
+        isProcessing = true;
+
+        const fontSize = parseInt(fontSizeSlider.value);
+        let charset = (charsetInput.value || DEFAULT_CHARSET)
+          .split("")
+          .filter((ch) => ch.trim() !== "")
+          .join("");
+        if (!charset.length) charset = DEFAULT_CHARSET;
+
+        if (fixedOutputW <= 0 || fixedOutputH <= 0) calcFixedSize();
+
+        const charWidthPx = fontSize * 0.6;
+        const charHeightPx = fontSize;
+
+        const maxCols = Math.floor(fixedOutputW / charWidthPx);
+        const maxRows = Math.floor(fixedOutputH / charHeightPx);
+
+        const imgAspect = currentImage.width / currentImage.height;
+        const charAspect = 0.6;
+
+        let cols = maxCols;
+        let rows = Math.floor(cols / imgAspect / charAspect);
+
+        if (rows > maxRows) {
+          rows = maxRows;
+          cols = Math.floor(rows * imgAspect * charAspect);
+        }
+
+        cols = Math.max(4, Math.min(cols, 800));
+        rows = Math.max(2, Math.min(rows, 600));
+
+        canvas.width = cols;
+        canvas.height = rows;
+        ctx.drawImage(currentImage, 0, 0, cols, rows);
+        const imageData = ctx.getImageData(0, 0, cols, rows);
+        const pixels = imageData.data;
+
+        let charArr = charset.split("");
+        if (inverted) charArr = charArr.slice().reverse();
+
+        const totalChars = charArr.length;
+        let html = "";
+        let charCount = 0;
+
+        if (colorMode) {
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const idx = (y * cols + x) * 4;
+              const r = pixels[idx];
+              const g = pixels[idx + 1];
+              const b = pixels[idx + 2];
+              const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              const charIndex = Math.floor(brightness * (totalChars - 1));
+              const ch = charArr[Math.min(charIndex, totalChars - 1)];
+              html += `<span style="color:rgb(${r},${g},${b})">${ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch}</span>`;
+              charCount++;
+            }
+            html += "\n";
+          }
+          asciiPre.innerHTML = html;
+          asciiPre.classList.add("color-mode");
+        } else {
+          let text = "";
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const idx = (y * cols + x) * 4;
+              const r = pixels[idx];
+              const g = pixels[idx + 1];
+              const b = pixels[idx + 2];
+              const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              const charIndex = Math.floor(brightness * (totalChars - 1));
+              text += charArr[Math.min(charIndex, totalChars - 1)];
+              charCount++;
+            }
+            text += "\n";
+          }
+          asciiPre.textContent = text;
+          asciiPre.classList.remove("color-mode");
+        }
+
+        asciiPre.style.fontSize = fontSize + "px";
+        asciiPre.style.lineHeight = fontSize + "px";
+
+        document.getElementById("infoRes").textContent =
+          `${currentImage.width}×${currentImage.height}`;
+        document.getElementById("infoChars").textContent =
+          charCount.toLocaleString();
+        document.getElementById("infoCols").textContent = cols;
+        document.getElementById("infoRows").textContent = rows;
+        document.querySelector(".title-text").textContent =
+          `ascii_portrait — bash — ${cols}×${rows}`;
+
+        isProcessing = false;
+      }
+
+      function downloadArt() {
+        const text = asciiPre.textContent || asciiPre.innerText;
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "text-portrait.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      let resizeTimeout;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          calcFixedSize();
+          if (currentImage) renderASCII();
+        }, 200);
+      });
+    </script>
+  </body>
+</html>
